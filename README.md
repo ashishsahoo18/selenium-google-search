@@ -124,6 +124,6 @@ selenium
 
 ## Author
 
-Ashish Sahoo
+Ashu
 
 GitHub: https://github.com/ashishsahoo18
