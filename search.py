@@ -23,7 +23,7 @@ try:
     time.sleep(10)
 
     # Save screenshot
-    driver.save_screenshot("screenshots/output.png")
+    driver.save_screenshot(f"screenshots/{search_text}.png")
 
     # Save search history
     with open("history.txt", "a") as file:
