@@ -1,2 +1,5 @@
 2026-05-22 16:51:09.244227 - show me india new lunch car
 2026-05-22 16:55:12.386392 - show me new car in india country
+2026-06-01 10:01:35.271071 - Now show me a duke bike
+2026-06-01 10:02:35.060530 - flower
+2026-06-01 10:04:23.391422 - bike image

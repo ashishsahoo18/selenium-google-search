@@ -20,7 +20,7 @@ try:
 
     print("Searching...")
 
-    time.sleep(10)
+    time.sleep(20)
 
     # Save screenshot
     driver.save_screenshot(f"screenshots/{search_text}.png")
