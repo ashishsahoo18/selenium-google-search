@@ -1,4 +1,5 @@
 from selenium import webdriver
+from config import WEBSITE, WAIT_TIME, SCREENSHOT_FOLDER
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from datetime import datetime
