@@ -1,28 +1,30 @@
-# Selenium Google Search Automation 🚀
+# Selenium Browser Automation Tool 🚀
 
-A beginner-friendly browser automation project built using Python and Selenium WebDriver.
+A Python-based browser automation project built with Selenium WebDriver.
 
-This project automatically opens a browser, performs a search based on user input, captures a screenshot of the results, and stores search history locally.
-
----
+This project automates browser search tasks, supports multiple browsers, captures screenshots, and stores search history automatically.
 
 ## Features
 
-- Automated browser control using Selenium
-- Dynamic user search input
-- Automatic screenshot capture
-- Dynamic screenshot file names
-- Search history logging
-- Error handling
-- Chrome browser automation
+✅ Chrome browser support
+✅ Firefox browser support
+✅ Automated browser control
+✅ User-based search input
+✅ Automatic screenshot capture
+✅ Dynamic screenshot file naming
+✅ Search history tracking
+✅ Saves search URL
+✅ Error handling
+✅ Automatic folder creation
 
 ---
 
-## Technologies Used
+## Tech Stack
 
-- Python
-- Selenium
-- Chrome WebDriver
+* Python
+* Selenium WebDriver
+* Chrome WebDriver
+* Firefox WebDriver
 
 ---
 
@@ -30,13 +32,14 @@ This project automatically opens a browser, performs a search based on user inpu
 
 ```text
 selenium-google-search/
+
 │
 ├── screenshots/
-│   ├── output.png
-│   ├── flower_image.png
+│   └── search_output.png
 │
-├── history.txt
+├── config.py
 ├── search.py
+├── history.txt
 ├── requirements.txt
 ├── .gitignore
 └── README.md
@@ -49,10 +52,10 @@ selenium-google-search/
 Clone the repository:
 
 ```bash
-git clone https://github.com/ashishsahoo18/selenium-google-search.git
+git clone YOUR_GITHUB_REPOSITORY_LINK
 ```
 
-Move into the project folder:
+Go into the project folder:
 
 ```bash
 cd selenium-google-search
@@ -66,7 +69,7 @@ pip install -r requirements.txt
 
 ---
 
-## Run the Project
+## Run Project
 
 ```bash
 python search.py
@@ -74,56 +77,42 @@ python search.py
 
 ---
 
-## Example Workflow
+## How It Works
 
-1. User enters search text
-2. Browser opens automatically
-3. Search executes automatically
-4. Results page loads
+1. User enters a search query
+2. User selects browser (Chrome/Firefox)
+3. Selenium opens the browser
+4. Search is performed automatically
 5. Screenshot is captured
-6. Search history is stored
+6. Search history is saved
 7. Browser closes automatically
 
 ---
 
 ## Example Output
 
-### Search Screenshot
-
-![Output](screenshots/output.png)
-
----
-
-## Example Search History
-
 ```text
-2026-05-22 05:55:20 - what is intensity
-2026-05-22 05:57:10 - give me a flower image
+Enter search text: python selenium
+
+Choose browser (chrome/firefox): chrome
+
+Opening browser...
+Searching...
+Screenshot saved!
+Search history updated!
+Completed successfully!
 ```
-
----
-
-## Requirements
-
-```txt
-selenium
-```
-
----
 
 ## Future Improvements
 
-- Firefox browser support
-- Headless browser mode
-- GUI interface
-- Multiple search engines
-- Automatic PDF export
-- AI-based search suggestions
+* GUI interface
+* Headless automation mode
+* Multiple search engine support
+* Automated testing framework
+* AI-based search assistant
 
 ---
 
 ## Author
 
-Ashu
-
-GitHub: https://github.com/ashishsahoo18
+Ashish Sahoo
