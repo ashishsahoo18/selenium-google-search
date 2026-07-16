@@ -245,10 +245,12 @@ class SearchApp(tk.Tk):
             )
 
         except Exception as error:
-            self.after(
-                0,
-                lambda: self.search_failed(str(error))
-            )
+                error_message = str(error)
+
+                self.after(
+                    0,
+                    lambda: self.search_failed(error_message)
+                )
 
     def search_done(self, screenshot, searched_query):
         self.status.set(f"Done. Screenshot: {screenshot.name}")
