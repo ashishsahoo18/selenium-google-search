@@ -164,6 +164,8 @@ class SearchApp(tk.Tk):
         entry.grid(row=0, column=1, columnspan=2, pady=5)
         entry.focus()
 
+        entry.bind("<Return>", lambda event: self.start_search())
+
         ttk.Label(frame, text="Search engine:").grid(
             row=1, column=0, sticky="w", pady=5
         )
