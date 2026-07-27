@@ -106,9 +106,6 @@ def run_search(query, engine, browser, headless, use_ai):
 
         time.sleep(60)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         screenshot_path = SCREENSHOT_FOLDER / (
             f"{safe_filename(searched_query)}_{timestamp}.png"
