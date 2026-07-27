@@ -104,7 +104,7 @@ def run_search(query, engine, browser, headless, use_ai):
             lambda d: d.current_url != SEARCH_ENGINES[engine]
         )
 
-        time.sleep(20)
+        time.sleep(60)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
