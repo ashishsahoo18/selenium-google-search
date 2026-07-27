@@ -30,8 +30,6 @@ try:
     search_box.send_keys(Keys.RETURN)
 
     time.sleep(WAIT_TIME)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_name = re.sub(r'[<>:"/\\|?*]', "_", search_text)
     screenshot_path = os.path.join(
         SCREENSHOT_FOLDER,
