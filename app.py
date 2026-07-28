@@ -186,12 +186,19 @@ class SearchApp(tk.Tk):
 
         self.build_interface()
 
-    def build_interface(self):
-        frame = ttk.Frame(self, padding=18)
-        frame.grid()
+        def build_interface(self):
 
-        ttk.Label(frame, text="Search text:").grid(
-            row=0, column=0, sticky="w", pady=5
+        frame = ttk.Frame(self, padding=20)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(
+            frame,
+            text="Search Text:"
+        ).grid(
+            row=0,
+            column=0,
+            sticky="w",
+            pady=5
         )
 
         entry = ttk.Entry(
@@ -199,25 +206,51 @@ class SearchApp(tk.Tk):
             textvariable=self.query,
             width=42
         )
-        entry.grid(row=0, column=1, columnspan=2, pady=5)
+
+        entry.grid(
+            row=0,
+            column=1,
+            columnspan=2,
+            pady=5
+        )
+
         entry.focus()
 
-        entry.bind("<Return>", lambda event: self.start_search())
+        entry.bind(
+            "<Return>",
+            lambda event: self.start_search()
+        )
 
-        ttk.Label(frame, text="Search engine:").grid(
-            row=1, column=0, sticky="w", pady=5
+        ttk.Label(
+            frame,
+            text="Search Engine:"
+        ).grid(
+            row=1,
+            column=0,
+            sticky="w",
+            pady=5
         )
 
         ttk.Combobox(
             frame,
             textvariable=self.engine,
-            values=list(SEARCH_ENGINES),
+            values=list(SEARCH_ENGINES.keys()),
             state="readonly",
-            width=18
-        ).grid(row=1, column=1, sticky="w")
+            width=20
+        ).grid(
+            row=1,
+            column=1,
+            sticky="w"
+        )
 
-        ttk.Label(frame, text="Browser:").grid(
-            row=2, column=0, sticky="w", pady=5
+        ttk.Label(
+            frame,
+            text="Browser:"
+        ).grid(
+            row=2,
+            column=0,
+            sticky="w",
+            pady=5
         )
 
         ttk.Combobox(
@@ -225,52 +258,86 @@ class SearchApp(tk.Tk):
             textvariable=self.browser,
             values=["Chrome", "Firefox"],
             state="readonly",
-            width=18
-        ).grid(row=2, column=1, sticky="w")
+            width=20
+        ).grid(
+            row=2,
+            column=1,
+            sticky="w"
+        )
 
         ttk.Checkbutton(
             frame,
-            text="Headless mode (do not show browser)",
+            text="Headless Mode",
             variable=self.headless
-        ).grid(row=3, column=0, columnspan=3, sticky="w", pady=4)
+        ).grid(
+            row=3,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=5
+        )
 
         ttk.Checkbutton(
             frame,
-            text="Improve query with AI (optional API key)",
+            text="Improve Query with AI",
             variable=self.use_ai
-        ).grid(row=4, column=0, columnspan=3, sticky="w", pady=4)
+        ).grid(
+            row=4,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=5
+        )
 
         self.button = ttk.Button(
             frame,
-            text="Search and Screenshot",
+            text="Search && Take Screenshot",
             command=self.start_search
         )
-        self.button.grid(row=5, column=0, columnspan=3, pady=(10, 6))
+
+        self.button.grid(
+            row=5,
+            column=0,
+            columnspan=3,
+            pady=15
+        )
 
         ttk.Label(
             frame,
             textvariable=self.status,
-            wraplength=400
-        ).grid(row=6, column=0, columnspan=3, sticky="w")
+            wraplength=430
+        ).grid(
+            row=6,
+            column=0,
+            columnspan=3,
+            sticky="w"
+        )
 
-    def start_search(self):
-        if not self.query.get().strip():
+        def start_search(self):
+
+        query = self.query.get().strip()
+
+        if not query:
             messagebox.showwarning(
-                "Missing search",
-                "Please enter search text."
+                "Missing Search",
+                "Please enter a search query."
             )
             return
 
         self.button.config(state="disabled")
-        self.status.set("Searching...")
+
+        self.status.set("Searching... Please wait.")
 
         threading.Thread(
             target=self.search_worker,
             daemon=True
         ).start()
 
+
     def search_worker(self):
+
         try:
+
             screenshot, searched_query = run_search(
                 self.query.get().strip(),
                 self.engine.get(),
@@ -281,34 +348,55 @@ class SearchApp(tk.Tk):
 
             self.after(
                 0,
-                lambda: self.search_done(screenshot, searched_query)
+                lambda: self.search_done(
+                    screenshot,
+                    searched_query
+                )
             )
 
         except Exception as error:
-                error_message = str(error)
 
-                self.after(
-                    0,
-                    lambda: self.search_failed(error_message)
-                )
-
-    def search_done(self, screenshot, searched_query):
-        self.status.set(f"Done. Screenshot: {screenshot.name}")
-        self.button.config(state="normal")
-
-        os.startfile(screenshot)
-
-        if self.use_ai.get() and searched_query != self.query.get().strip():
-            messagebox.showinfo(
-                "AI search query",
-                f"Searched for: {searched_query}"
+            self.after(
+                0,
+                lambda: self.search_failed(str(error))
             )
 
-    def search_failed(self, error):
-        self.status.set("Search failed.")
+
+    def search_done(self, screenshot, searched_query):
+
         self.button.config(state="normal")
 
-        messagebox.showerror("Search error", error)
+        self.status.set(
+            f"Completed successfully.\nScreenshot: {screenshot.name}"
+        )
+
+        try:
+            os.startfile(str(screenshot))
+        except Exception:
+            pass
+
+        if (
+            self.use_ai.get()
+            and searched_query != self.query.get().strip()
+        ):
+
+            messagebox.showinfo(
+                "AI Improved Query",
+                f"Original:\n\n{self.query.get()}\n\n"
+                f"Searched:\n\n{searched_query}"
+            )
+
+
+    def search_failed(self, error):
+
+        self.button.config(state="normal")
+
+        self.status.set("Search failed.")
+
+        messagebox.showerror(
+            "Error",
+            error
+        )
 
 
 if __name__ == "__main__":
