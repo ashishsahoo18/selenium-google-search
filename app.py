@@ -110,6 +110,38 @@ def get_search_box(wait, engine):
     return wait.until(EC.element_to_be_clickable(locators[engine]))
 
 
+def wait_for_results(wait, engine):
+    """Block until the results page has actually rendered content.
+
+    document.readyState hitting "complete" only means the DOM finished
+    parsing -- it fires before these engines inject their async result
+    blocks, images, and ads. Waiting on a real results-container
+    element is a much more reliable signal that there's something on
+    screen worth screenshotting.
+    """
+    locators = {
+        "Google": (By.ID, "search"),
+        "Bing": (By.ID, "b_results"),
+        "DuckDuckGo": (By.ID, "links"),
+    }
+
+    locator = locators.get(engine)
+
+    if locator is not None:
+        try:
+            wait.until(EC.presence_of_element_located(locator))
+            return
+        except TimeoutException:
+            # Fall through to the generic readyState check below --
+            # some result pages (e.g. "no results", captcha/consent
+            # walls) never render the expected container.
+            pass
+
+    wait.until(
+        lambda d: d.execute_script("return document.readyState") == "complete"
+    )
+
+
 def run_search(query, engine, browser, headless, use_ai):
     """Run the search, save a screenshot, and log history.
 
@@ -139,15 +171,8 @@ def run_search(query, engine, browser, headless, use_ai):
         # once the search is submitted.
         wait.until(EC.url_changes(SEARCH_ENGINES[engine]))
 
-        # Give the results a brief moment to finish rendering visually
-        # (fonts, images, layout shifts) before the screenshot is taken.
-        # A short, bounded wait here is reasonable since there is no
-        # single reliable "results fully rendered" DOM signal across
-        # three different search engines.
-        WebDriverWait(driver, 5).until(
-            lambda d: d.execute_script("return document.readyState")
-            == "complete"
-        )
+        # Wait for the actual results container, not just a parsed DOM.
+        wait_for_results(wait, engine)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         screenshot_path = SCREENSHOT_FOLDER / (
