@@ -25,11 +25,7 @@ HISTORY_FILE = BASE_DIR / "history.txt"
 
 WAIT_TIME = 15
 
-SEARCH_ENGINES = {
-    "Google": "https://www.google.com",
-    "Bing": "https://www.bing.com",
-    "DuckDuckGo": "https://duckduckgo.com",
-}
+SEARCH_URL = "https://www.google.com"
 
 
 def improve_query(query):
@@ -93,57 +89,36 @@ def safe_filename(text):
     return cleaned or "search"
 
 
-def get_search_box(wait, engine):
-    """Return the clickable search input element for the given engine."""
-    if engine not in SEARCH_ENGINES:
-        raise ValueError(f"Unsupported search engine: {engine}")
-
-    # All three engines currently expose their search input as
-    # name="q", but this is kept as a lookup so each engine can be
-    # customized independently if a site changes its markup.
-    locators = {
-        "Google": (By.NAME, "q"),
-        "Bing": (By.NAME, "q"),
-        "DuckDuckGo": (By.NAME, "q"),
-    }
-
-    return wait.until(EC.element_to_be_clickable(locators[engine]))
+def get_search_box(wait):
+    """Return the clickable Google search input element."""
+    return wait.until(EC.element_to_be_clickable((By.NAME, "q")))
 
 
-def wait_for_results(wait, engine):
-    """Block until the results page has actually rendered content.
+def wait_for_results(wait):
+    """Block until the Google results container has actually rendered.
 
     document.readyState hitting "complete" only means the DOM finished
-    parsing -- it fires before these engines inject their async result
-    blocks, images, and ads. Waiting on a real results-container
-    element is a much more reliable signal that there's something on
-    screen worth screenshotting.
+    parsing -- it fires before Google injects its async result blocks,
+    images, and ads. Waiting on the real results container (#search)
+    is a much more reliable signal that there's something on screen
+    worth screenshotting.
     """
-    locators = {
-        "Google": (By.ID, "search"),
-        "Bing": (By.ID, "b_results"),
-        "DuckDuckGo": (By.ID, "links"),
-    }
-
-    locator = locators.get(engine)
-
-    if locator is not None:
-        try:
-            wait.until(EC.presence_of_element_located(locator))
-            return
-        except TimeoutException:
-            # Fall through to the generic readyState check below --
-            # some result pages (e.g. "no results", captcha/consent
-            # walls) never render the expected container.
-            pass
+    try:
+        wait.until(EC.presence_of_element_located((By.ID, "search")))
+        return
+    except TimeoutException:
+        # Fall through to the generic readyState check below -- some
+        # result pages (e.g. "no results", a consent wall) never
+        # render the #search container.
+        pass
 
     wait.until(
         lambda d: d.execute_script("return document.readyState") == "complete"
     )
 
 
-def run_search(query, engine, browser, headless, use_ai):
-    """Run the search, save a screenshot, and log history.
+def run_search(query, browser, headless, use_ai):
+    """Run the search on Google, save a screenshot, and log history.
 
     Returns a tuple of (screenshot_path, searched_query).
     """
@@ -157,11 +132,11 @@ def run_search(query, engine, browser, headless, use_ai):
         if not headless:
             driver.maximize_window()
 
-        driver.get(SEARCH_ENGINES[engine])
+        driver.get(SEARCH_URL)
 
         wait = WebDriverWait(driver, WAIT_TIME)
 
-        search_box = get_search_box(wait, engine)
+        search_box = get_search_box(wait)
         search_box.clear()
         search_box.send_keys(searched_query)
         search_box.send_keys(Keys.RETURN)
@@ -169,10 +144,10 @@ def run_search(query, engine, browser, headless, use_ai):
         # Wait for the results page to actually load instead of a
         # fixed sleep: the URL should change away from the homepage
         # once the search is submitted.
-        wait.until(EC.url_changes(SEARCH_ENGINES[engine]))
+        wait.until(EC.url_changes(SEARCH_URL))
 
         # Wait for the actual results container, not just a parsed DOM.
-        wait_for_results(wait, engine)
+        wait_for_results(wait)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         screenshot_path = SCREENSHOT_FOLDER / (
@@ -184,7 +159,7 @@ def run_search(query, engine, browser, headless, use_ai):
         with HISTORY_FILE.open("a", encoding="utf-8") as file:
             file.write(
                 f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | "
-                f"{engine} | "
+                f"{browser} | "
                 f"{searched_query} | "
                 f"{driver.current_url}\n"
             )
@@ -207,11 +182,10 @@ class SearchApp(tk.Tk):
         super().__init__()
 
         self.title("Desktop Selenium Search Assistant")
-        self.geometry("500x310")
+        self.geometry("500x280")
         self.resizable(False, False)
 
         self.query = tk.StringVar()
-        self.engine = tk.StringVar(value="Google")
         self.browser = tk.StringVar(value="Chrome")
         self.headless = tk.BooleanVar()
         self.use_ai = tk.BooleanVar()
@@ -234,20 +208,8 @@ class SearchApp(tk.Tk):
         entry.focus()
         entry.bind("<Return>", lambda event: self.start_search())
 
-        ttk.Label(frame, text="Search Engine:").grid(
-            row=1, column=0, sticky="w", pady=5
-        )
-
-        ttk.Combobox(
-            frame,
-            textvariable=self.engine,
-            values=list(SEARCH_ENGINES.keys()),
-            state="readonly",
-            width=20,
-        ).grid(row=1, column=1, sticky="w")
-
         ttk.Label(frame, text="Browser:").grid(
-            row=2, column=0, sticky="w", pady=5
+            row=1, column=0, sticky="w", pady=5
         )
 
         ttk.Combobox(
@@ -256,26 +218,26 @@ class SearchApp(tk.Tk):
             values=["Chrome", "Firefox"],
             state="readonly",
             width=20,
-        ).grid(row=2, column=1, sticky="w")
+        ).grid(row=1, column=1, sticky="w")
 
         ttk.Checkbutton(
             frame, text="Headless Mode", variable=self.headless
-        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=5)
+        ).grid(row=2, column=0, columnspan=2, sticky="w", pady=5)
 
         ttk.Checkbutton(
             frame, text="Improve Query with AI", variable=self.use_ai
-        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=5)
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=5)
 
         self.button = ttk.Button(
             frame,
             text="Search && Take Screenshot",
             command=self.start_search,
         )
-        self.button.grid(row=5, column=0, columnspan=3, pady=15)
+        self.button.grid(row=4, column=0, columnspan=3, pady=15)
 
         ttk.Label(
             frame, textvariable=self.status, wraplength=430
-        ).grid(row=6, column=0, columnspan=3, sticky="w")
+        ).grid(row=5, column=0, columnspan=3, sticky="w")
 
     def start_search(self):
         query = self.query.get().strip()
@@ -293,14 +255,13 @@ class SearchApp(tk.Tk):
 
     def search_worker(self):
         query = self.query.get().strip()
-        engine = self.engine.get()
         browser = self.browser.get()
         headless = self.headless.get()
         use_ai = self.use_ai.get()
 
         try:
             screenshot, searched_query = run_search(
-                query, engine, browser, headless, use_ai
+                query, browser, headless, use_ai
             )
             self.after(
                 0, lambda: self.search_done(screenshot, searched_query, query)
