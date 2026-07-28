@@ -1,13 +1,13 @@
-"""Desktop Selenium search assistant."""
+"""Desktop Selenium Search Assistant"""
 
 import os
-import time
 import re
+import time
 import threading
-from datetime import datetime, time
 from pathlib import Path
+from datetime import datetime
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk, messagebox
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -19,6 +19,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 BASE_DIR = Path(__file__).parent
 SCREENSHOT_FOLDER = BASE_DIR / "screenshots"
 HISTORY_FILE = BASE_DIR / "history.txt"
+
 WAIT_TIME = 15
 
 SEARCH_ENGINES = {
@@ -29,7 +30,8 @@ SEARCH_ENGINES = {
 
 
 def improve_query(query):
-    """Improve the search query only if an OpenAI API key is configured."""
+    """Improve query using OpenAI if API key exists."""
+
     api_key = os.getenv("OPENAI_API_KEY")
 
     if not api_key:
@@ -38,23 +40,27 @@ def improve_query(query):
     try:
         from openai import OpenAI
 
-        response = OpenAI(api_key=api_key).responses.create(
+        client = OpenAI(api_key=api_key)
+
+        response = client.responses.create(
             model="gpt-4.1-mini",
             input=(
-                "Rewrite this as one concise and useful web-search query. "
-                "Return only the query: " + query
+                "Rewrite this as a short and effective web search query. "
+                "Return only the rewritten query.\n\n"
+                f"{query}"
             ),
         )
 
-        improved = response.output_text.strip()
-        return improved or query
+        return response.output_text.strip()
 
     except Exception:
         return query
 
 
 def create_driver(browser, headless):
+
     if browser == "Chrome":
+
         options = webdriver.ChromeOptions()
 
         if headless:
@@ -63,29 +69,55 @@ def create_driver(browser, headless):
 
         return webdriver.Chrome(options=options)
 
-    options = webdriver.FirefoxOptions()
+    else:
 
-    if headless:
-        options.add_argument("-headless")
+        options = webdriver.FirefoxOptions()
 
-    return webdriver.Firefox(options=options)
+        if headless:
+            options.add_argument("-headless")
+
+        return webdriver.Firefox(options=options)
 
 
-def safe_filename(value):
+def safe_filename(text):
+
     return re.sub(
         r'[<>:"/\\|?*\x00-\x1f]',
         "_",
-        value
+        text
     ).strip(" ._") or "search"
 
 
+def get_search_box(wait, engine):
+
+    if engine == "Google":
+        return wait.until(
+            EC.element_to_be_clickable((By.NAME, "q"))
+        )
+
+    if engine == "Bing":
+        return wait.until(
+            EC.element_to_be_clickable((By.NAME, "q"))
+        )
+
+    if engine == "DuckDuckGo":
+        return wait.until(
+            EC.element_to_be_clickable((By.NAME, "q"))
+        )
+
+    raise Exception("Unsupported search engine")
+
+
 def run_search(query, engine, browser, headless, use_ai):
+
     SCREENSHOT_FOLDER.mkdir(exist_ok=True)
 
     searched_query = improve_query(query) if use_ai else query
+
     driver = create_driver(browser, headless)
 
     try:
+
         if not headless:
             driver.maximize_window()
 
@@ -93,19 +125,17 @@ def run_search(query, engine, browser, headless, use_ai):
 
         wait = WebDriverWait(driver, WAIT_TIME)
 
-        search_box = wait.until(
-            EC.element_to_be_clickable((By.NAME, "q"))
-        )
+        search_box = get_search_box(wait, engine)
+
+        search_box.clear()
 
         search_box.send_keys(searched_query)
+
         search_box.send_keys(Keys.RETURN)
 
-        wait.until(
-            lambda d: d.current_url != SEARCH_ENGINES[engine]
-        )
+        time.sleep(3)
 
-        time.sleep(60)
-
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         screenshot_path = SCREENSHOT_FOLDER / (
             f"{safe_filename(searched_query)}_{timestamp}.png"
@@ -113,10 +143,12 @@ def run_search(query, engine, browser, headless, use_ai):
 
         driver.save_screenshot(str(screenshot_path))
 
-        with HISTORY_FILE.open("a", encoding="utf-8") as history:
-            history.write(
-                f"{datetime.now().isoformat(sep=' ', timespec='seconds')} | "
-                f"{engine} | {searched_query} | "
+        with HISTORY_FILE.open("a", encoding="utf-8") as file:
+
+            file.write(
+                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | "
+                f"{engine} | "
+                f"{searched_query} | "
                 f"{driver.current_url}\n"
             )
 
@@ -127,20 +159,29 @@ def run_search(query, engine, browser, headless, use_ai):
 
 
 class SearchApp(tk.Tk):
+
     def __init__(self):
+
         super().__init__()
 
-        self.title("Selenium Search Assistant")
+        self.title("Desktop Selenium Search Assistant")
+
+        self.geometry("500x310")
+
         self.resizable(False, False)
 
         self.query = tk.StringVar()
+
         self.engine = tk.StringVar(value="Google")
+
         self.browser = tk.StringVar(value="Chrome")
+
         self.headless = tk.BooleanVar()
+
         self.use_ai = tk.BooleanVar()
 
         self.status = tk.StringVar(
-            value="Enter a search and press Search."
+            value="Ready."
         )
 
         self.build_interface()
