@@ -186,42 +186,41 @@ class SearchApp(tk.Tk):
 
         self.build_interface()
 
-        def build_interface(self):
+def build_interface(self):
+    frame = ttk.Frame(self, padding=20)
+    frame.pack(fill="both", expand=True)
 
-        frame = ttk.Frame(self, padding=20)
-        frame.pack(fill="both", expand=True)
-
-        ttk.Label(
+    ttk.Label(
             frame,
             text="Search Text:"
-        ).grid(
+    ).grid(
             row=0,
             column=0,
             sticky="w",
             pady=5
-        )
+    )
 
-        entry = ttk.Entry(
+    entry = ttk.Entry(
             frame,
             textvariable=self.query,
             width=42
-        )
+    )
 
-        entry.grid(
+    entry.grid(
             row=0,
             column=1,
             columnspan=2,
             pady=5
-        )
+    )
 
-        entry.focus()
+    entry.focus()
 
-        entry.bind(
+    entry.bind(
             "<Return>",
             lambda event: self.start_search()
-        )
+    )
 
-        ttk.Label(
+    ttk.Label(
             frame,
             text="Search Engine:"
         ).grid(
@@ -229,21 +228,21 @@ class SearchApp(tk.Tk):
             column=0,
             sticky="w",
             pady=5
-        )
+    )
 
-        ttk.Combobox(
+    ttk.Combobox(
             frame,
             textvariable=self.engine,
             values=list(SEARCH_ENGINES.keys()),
             state="readonly",
             width=20
-        ).grid(
+    ).grid(
             row=1,
             column=1,
             sticky="w"
-        )
+    )
 
-        ttk.Label(
+    ttk.Label(
             frame,
             text="Browser:"
         ).grid(
@@ -251,58 +250,58 @@ class SearchApp(tk.Tk):
             column=0,
             sticky="w",
             pady=5
-        )
+    )
 
-        ttk.Combobox(
+    ttk.Combobox(
             frame,
             textvariable=self.browser,
             values=["Chrome", "Firefox"],
             state="readonly",
             width=20
-        ).grid(
+    ).grid(
             row=2,
             column=1,
             sticky="w"
-        )
+    )
 
-        ttk.Checkbutton(
+    ttk.Checkbutton(
             frame,
             text="Headless Mode",
             variable=self.headless
-        ).grid(
+    ).grid(
             row=3,
             column=0,
             columnspan=2,
             sticky="w",
             pady=5
-        )
+    )
 
-        ttk.Checkbutton(
+    ttk.Checkbutton(
             frame,
             text="Improve Query with AI",
             variable=self.use_ai
-        ).grid(
+    ).grid(
             row=4,
             column=0,
             columnspan=2,
             sticky="w",
             pady=5
-        )
+    )
 
-        self.button = ttk.Button(
+    self.button = ttk.Button(
             frame,
             text="Search && Take Screenshot",
             command=self.start_search
-        )
+    )
 
-        self.button.grid(
+    self.button.grid(
             row=5,
             column=0,
             columnspan=3,
             pady=15
-        )
+    )
 
-        ttk.Label(
+    ttk.Label(
             frame,
             textvariable=self.status,
             wraplength=430
@@ -313,7 +312,7 @@ class SearchApp(tk.Tk):
             sticky="w"
         )
 
-        def start_search(self):
+def start_search(self):
 
         query = self.query.get().strip()
 
@@ -334,7 +333,7 @@ class SearchApp(tk.Tk):
         ).start()
 
 
-    def search_worker(self):
+def search_worker(self):
 
         try:
 
@@ -362,7 +361,7 @@ class SearchApp(tk.Tk):
             )
 
 
-    def search_done(self, screenshot, searched_query):
+def search_done(self, screenshot, searched_query):
 
         self.button.config(state="normal")
 
@@ -387,7 +386,7 @@ class SearchApp(tk.Tk):
             )
 
 
-    def search_failed(self, error):
+def search_failed(self, error):
 
         self.button.config(state="normal")
 
