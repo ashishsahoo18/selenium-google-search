@@ -1,8 +1,7 @@
-"""Desktop Selenium Search Assistant"""
+"""Desktop Selenium Search Assistant."""
 
 import os
 import re
-import time
 import threading
 from pathlib import Path
 from datetime import datetime
@@ -10,6 +9,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from selenium import webdriver
+from selenium.common.exceptions import (
+    TimeoutException,
+    WebDriverException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
@@ -30,8 +33,7 @@ SEARCH_ENGINES = {
 
 
 def improve_query(query):
-    """Improve query using OpenAI if API key exists."""
-
+    """Improve query using OpenAI if an API key is available."""
     api_key = os.getenv("OPENAI_API_KEY")
 
     if not api_key:
@@ -51,16 +53,19 @@ def improve_query(query):
             ),
         )
 
-        return response.output_text.strip()
+        rewritten = response.output_text.strip()
+
+        return rewritten if rewritten else query
 
     except Exception:
+        # If the AI rewrite fails for any reason, fall back to the
+        # original query rather than crashing the search.
         return query
 
 
 def create_driver(browser, headless):
-
+    """Create and return a Selenium WebDriver for the chosen browser."""
     if browser == "Chrome":
-
         options = webdriver.ChromeOptions()
 
         if headless:
@@ -69,47 +74,47 @@ def create_driver(browser, headless):
 
         return webdriver.Chrome(options=options)
 
-    else:
-
+    if browser == "Firefox":
         options = webdriver.FirefoxOptions()
 
         if headless:
             options.add_argument("-headless")
+            options.add_argument("--width=1920")
+            options.add_argument("--height=1080")
 
         return webdriver.Firefox(options=options)
 
+    raise ValueError(f"Unsupported browser: {browser}")
+
 
 def safe_filename(text):
-
-    return re.sub(
-        r'[<>:"/\\|?*\x00-\x1f]',
-        "_",
-        text
-    ).strip(" ._") or "search"
+    """Sanitize text so it can be safely used as a filename."""
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", text).strip(" ._")
+    return cleaned or "search"
 
 
 def get_search_box(wait, engine):
+    """Return the clickable search input element for the given engine."""
+    if engine not in SEARCH_ENGINES:
+        raise ValueError(f"Unsupported search engine: {engine}")
 
-    if engine == "Google":
-        return wait.until(
-            EC.element_to_be_clickable((By.NAME, "q"))
-        )
+    # All three engines currently expose their search input as
+    # name="q", but this is kept as a lookup so each engine can be
+    # customized independently if a site changes its markup.
+    locators = {
+        "Google": (By.NAME, "q"),
+        "Bing": (By.NAME, "q"),
+        "DuckDuckGo": (By.NAME, "q"),
+    }
 
-    if engine == "Bing":
-        return wait.until(
-            EC.element_to_be_clickable((By.NAME, "q"))
-        )
-
-    if engine == "DuckDuckGo":
-        return wait.until(
-            EC.element_to_be_clickable((By.NAME, "q"))
-        )
-
-    raise Exception("Unsupported search engine")
+    return wait.until(EC.element_to_be_clickable(locators[engine]))
 
 
 def run_search(query, engine, browser, headless, use_ai):
+    """Run the search, save a screenshot, and log history.
 
+    Returns a tuple of (screenshot_path, searched_query).
+    """
     SCREENSHOT_FOLDER.mkdir(exist_ok=True)
 
     searched_query = improve_query(query) if use_ai else query
@@ -117,7 +122,6 @@ def run_search(query, engine, browser, headless, use_ai):
     driver = create_driver(browser, headless)
 
     try:
-
         if not headless:
             driver.maximize_window()
 
@@ -126,17 +130,26 @@ def run_search(query, engine, browser, headless, use_ai):
         wait = WebDriverWait(driver, WAIT_TIME)
 
         search_box = get_search_box(wait, engine)
-
         search_box.clear()
-
         search_box.send_keys(searched_query)
-
         search_box.send_keys(Keys.RETURN)
 
-        time.sleep(3)
+        # Wait for the results page to actually load instead of a
+        # fixed sleep: the URL should change away from the homepage
+        # once the search is submitted.
+        wait.until(EC.url_changes(SEARCH_ENGINES[engine]))
+
+        # Give the results a brief moment to finish rendering visually
+        # (fonts, images, layout shifts) before the screenshot is taken.
+        # A short, bounded wait here is reasonable since there is no
+        # single reliable "results fully rendered" DOM signal across
+        # three different search engines.
+        WebDriverWait(driver, 5).until(
+            lambda d: d.execute_script("return document.readyState")
+            == "complete"
+        )
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
         screenshot_path = SCREENSHOT_FOLDER / (
             f"{safe_filename(searched_query)}_{timestamp}.png"
         )
@@ -144,7 +157,6 @@ def run_search(query, engine, browser, headless, use_ai):
         driver.save_screenshot(str(screenshot_path))
 
         with HISTORY_FILE.open("a", encoding="utf-8") as file:
-
             file.write(
                 f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | "
                 f"{engine} | "
@@ -155,251 +167,168 @@ def run_search(query, engine, browser, headless, use_ai):
         return screenshot_path, searched_query
 
     finally:
-        driver.quit()
+        # Always release the browser process, even if something above
+        # raised (timeout, stale element, etc.).
+        try:
+            driver.quit()
+        except WebDriverException:
+            pass
 
 
 class SearchApp(tk.Tk):
+    """Main Tkinter application window."""
 
     def __init__(self):
-
         super().__init__()
 
         self.title("Desktop Selenium Search Assistant")
-
         self.geometry("500x310")
-
         self.resizable(False, False)
 
         self.query = tk.StringVar()
-
         self.engine = tk.StringVar(value="Google")
-
         self.browser = tk.StringVar(value="Chrome")
-
         self.headless = tk.BooleanVar()
-
         self.use_ai = tk.BooleanVar()
+        self.status = tk.StringVar(value="Ready.")
 
-        self.status = tk.StringVar(
-            value="Ready."
-        )
+        self.button = None
 
         self.build_interface()
 
-def build_interface(self):
-    frame = ttk.Frame(self, padding=20)
-    frame.pack(fill="both", expand=True)
+    def build_interface(self):
+        frame = ttk.Frame(self, padding=20)
+        frame.pack(fill="both", expand=True)
 
-    ttk.Label(
-            frame,
-            text="Search Text:"
-    ).grid(
-            row=0,
-            column=0,
-            sticky="w",
-            pady=5
-    )
+        ttk.Label(frame, text="Search Text:").grid(
+            row=0, column=0, sticky="w", pady=5
+        )
 
-    entry = ttk.Entry(
-            frame,
-            textvariable=self.query,
-            width=42
-    )
+        entry = ttk.Entry(frame, textvariable=self.query, width=42)
+        entry.grid(row=0, column=1, columnspan=2, pady=5)
+        entry.focus()
+        entry.bind("<Return>", lambda event: self.start_search())
 
-    entry.grid(
-            row=0,
-            column=1,
-            columnspan=2,
-            pady=5
-    )
+        ttk.Label(frame, text="Search Engine:").grid(
+            row=1, column=0, sticky="w", pady=5
+        )
 
-    entry.focus()
-
-    entry.bind(
-            "<Return>",
-            lambda event: self.start_search()
-    )
-
-    ttk.Label(
-            frame,
-            text="Search Engine:"
-        ).grid(
-            row=1,
-            column=0,
-            sticky="w",
-            pady=5
-    )
-
-    ttk.Combobox(
+        ttk.Combobox(
             frame,
             textvariable=self.engine,
             values=list(SEARCH_ENGINES.keys()),
             state="readonly",
-            width=20
-    ).grid(
-            row=1,
-            column=1,
-            sticky="w"
-    )
+            width=20,
+        ).grid(row=1, column=1, sticky="w")
 
-    ttk.Label(
-            frame,
-            text="Browser:"
-        ).grid(
-            row=2,
-            column=0,
-            sticky="w",
-            pady=5
-    )
+        ttk.Label(frame, text="Browser:").grid(
+            row=2, column=0, sticky="w", pady=5
+        )
 
-    ttk.Combobox(
+        ttk.Combobox(
             frame,
             textvariable=self.browser,
             values=["Chrome", "Firefox"],
             state="readonly",
-            width=20
-    ).grid(
-            row=2,
-            column=1,
-            sticky="w"
-    )
+            width=20,
+        ).grid(row=2, column=1, sticky="w")
 
-    ttk.Checkbutton(
-            frame,
-            text="Headless Mode",
-            variable=self.headless
-    ).grid(
-            row=3,
-            column=0,
-            columnspan=2,
-            sticky="w",
-            pady=5
-    )
+        ttk.Checkbutton(
+            frame, text="Headless Mode", variable=self.headless
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=5)
 
-    ttk.Checkbutton(
-            frame,
-            text="Improve Query with AI",
-            variable=self.use_ai
-    ).grid(
-            row=4,
-            column=0,
-            columnspan=2,
-            sticky="w",
-            pady=5
-    )
+        ttk.Checkbutton(
+            frame, text="Improve Query with AI", variable=self.use_ai
+        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=5)
 
-    self.button = ttk.Button(
+        self.button = ttk.Button(
             frame,
             text="Search && Take Screenshot",
-            command=self.start_search
-    )
-
-    self.button.grid(
-            row=5,
-            column=0,
-            columnspan=3,
-            pady=15
-    )
-
-    ttk.Label(
-            frame,
-            textvariable=self.status,
-            wraplength=430
-        ).grid(
-            row=6,
-            column=0,
-            columnspan=3,
-            sticky="w"
+            command=self.start_search,
         )
+        self.button.grid(row=5, column=0, columnspan=3, pady=15)
 
-def start_search(self):
+        ttk.Label(
+            frame, textvariable=self.status, wraplength=430
+        ).grid(row=6, column=0, columnspan=3, sticky="w")
 
+    def start_search(self):
         query = self.query.get().strip()
 
         if not query:
             messagebox.showwarning(
-                "Missing Search",
-                "Please enter a search query."
+                "Missing Search", "Please enter a search query."
             )
             return
 
         self.button.config(state="disabled")
-
         self.status.set("Searching... Please wait.")
 
-        threading.Thread(
-            target=self.search_worker,
-            daemon=True
-        ).start()
+        threading.Thread(target=self.search_worker, daemon=True).start()
 
-
-def search_worker(self):
+    def search_worker(self):
+        query = self.query.get().strip()
+        engine = self.engine.get()
+        browser = self.browser.get()
+        headless = self.headless.get()
+        use_ai = self.use_ai.get()
 
         try:
-
             screenshot, searched_query = run_search(
-                self.query.get().strip(),
-                self.engine.get(),
-                self.browser.get(),
-                self.headless.get(),
-                self.use_ai.get()
+                query, engine, browser, headless, use_ai
+            )
+            self.after(
+                0, lambda: self.search_done(screenshot, searched_query, query)
             )
 
+        except TimeoutException:
             self.after(
                 0,
-                lambda: self.search_done(
-                    screenshot,
-                    searched_query
-                )
+                lambda: self.search_failed(
+                    "Timed out waiting for the search page to respond. "
+                    "Check your internet connection and try again."
+                ),
             )
 
-        except Exception as error:
-
+        except WebDriverException as error:
             self.after(
                 0,
-                lambda: self.search_failed(str(error))
+                lambda: self.search_failed(
+                    "Browser automation failed. Make sure the matching "
+                    f"WebDriver is installed and on PATH.\n\nDetails: {error}"
+                ),
             )
 
+        except Exception as error:  # noqa: BLE001 - surfaced to the user
+            self.after(0, lambda: self.search_failed(str(error)))
 
-def search_done(self, screenshot, searched_query):
-
+    def search_done(self, screenshot, searched_query, original_query):
         self.button.config(state="normal")
-
         self.status.set(
             f"Completed successfully.\nScreenshot: {screenshot.name}"
         )
 
         try:
-            os.startfile(str(screenshot))
-        except Exception:
+            os.startfile(str(screenshot))  # Windows only
+        except (AttributeError, OSError):
+            # os.startfile doesn't exist on non-Windows platforms, and
+            # may also fail if there's no default viewer configured.
             pass
 
-        if (
-            self.use_ai.get()
-            and searched_query != self.query.get().strip()
-        ):
-
+        if self.use_ai.get() and searched_query != original_query:
             messagebox.showinfo(
                 "AI Improved Query",
-                f"Original:\n\n{self.query.get()}\n\n"
-                f"Searched:\n\n{searched_query}"
+                f"Original:\n\n{original_query}\n\n"
+                f"Searched:\n\n{searched_query}",
             )
 
-
-def search_failed(self, error):
-
+    def search_failed(self, error):
         self.button.config(state="normal")
-
         self.status.set("Search failed.")
-
-        messagebox.showerror(
-            "Error",
-            error
-        )
+        messagebox.showerror("Error", error)
 
 
 if __name__ == "__main__":
-
     try:
         app = SearchApp()
         app.mainloop()
@@ -407,8 +336,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Application closed.")
 
-    except Exception as error:
-        messagebox.showerror(
-            "Application Error",
-            str(error)
-        )
+    except Exception as error:  # noqa: BLE001 - last-resort dialog
+        messagebox.showerror("Application Error", str(error))
