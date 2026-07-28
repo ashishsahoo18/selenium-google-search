@@ -400,4 +400,16 @@ class SearchApp(tk.Tk):
 
 
 if __name__ == "__main__":
-    SearchApp().mainloop()
+
+    try:
+        app = SearchApp()
+        app.mainloop()
+
+    except KeyboardInterrupt:
+        print("Application closed.")
+
+    except Exception as error:
+        messagebox.showerror(
+            "Application Error",
+            str(error)
+        )
