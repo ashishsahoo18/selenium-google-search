@@ -218,7 +218,7 @@ Planned improvements include:
 * [ ] Better logging system
 * [ ] Configuration-based browser selection
 * [ ] Search result extraction
-* [ ] AI-powered search assistance
+      
 
 ---
 
